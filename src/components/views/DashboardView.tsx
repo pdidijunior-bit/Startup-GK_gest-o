@@ -176,53 +176,67 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           </div>
 
           <div className="flex flex-col gap-3.5">
-            {projects.slice(0, 3).map((proj) => (
-              <div
-                key={proj.id}
-                className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-4 hover:border-slate-700 transition-all flex flex-col gap-3"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-white text-sm">{proj.name}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-800 text-slate-300 border border-slate-700">
-                        {proj.type === 'web_app'
-                          ? 'Web App'
-                          : proj.type === 'landing_page'
-                          ? 'Landing Page Ads'
-                          : 'Site Institucional'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Cliente: <strong className="text-slate-300">{proj.client}</strong> • Prazo: {proj.deadline}
-                    </p>
-                  </div>
-                  <span className="text-sm font-black text-cyan-400">{proj.progress}%</span>
-                </div>
-
-                {/* Progress bar */}
-                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${proj.progress}%` }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                  <span>Equipe: {proj.team.slice(0, 3).join(', ')}</span>
-                  {proj.liveUrl && (
-                    <a
-                      href={proj.liveUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-cyan-400 hover:underline text-[11px]"
-                    >
-                      <ExternalLink className="w-3 h-3" /> Preview Online
-                    </a>
-                  )}
-                </div>
+            {projects.length === 0 ? (
+              <div className="p-8 text-center bg-slate-950/60 rounded-xl border border-slate-800/80 flex flex-col items-center justify-center gap-2">
+                <Layers className="w-8 h-8 text-slate-700 mb-1" />
+                <span className="text-xs font-semibold text-slate-300">Nenhum projeto cadastrado</span>
+                <span className="text-[11px] text-slate-500 max-w-xs">Cadastre o primeiro aplicativo web, site ou página publicitária da GK.</span>
+                <button
+                  onClick={() => setActiveTab('projects')}
+                  className="mt-2 px-3.5 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Novo Projeto
+                </button>
               </div>
-            ))}
+            ) : (
+              projects.slice(0, 3).map((proj) => (
+                <div
+                  key={proj.id}
+                  className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-4 hover:border-slate-700 transition-all flex flex-col gap-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white text-sm">{proj.name}</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-800 text-slate-300 border border-slate-700">
+                          {proj.type === 'web_app'
+                            ? 'Web App'
+                            : proj.type === 'landing_page'
+                            ? 'Landing Page Ads'
+                            : 'Site Institucional'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Cliente: <strong className="text-slate-300">{proj.client}</strong> • Prazo: {proj.deadline}
+                      </p>
+                    </div>
+                    <span className="text-sm font-black text-cyan-400">{proj.progress}%</span>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${proj.progress}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                    <span>Equipe: {proj.team.slice(0, 3).join(', ')}</span>
+                    {proj.liveUrl && (
+                      <a
+                        href={proj.liveUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-cyan-400 hover:underline text-[11px]"
+                      >
+                        <ExternalLink className="w-3 h-3" /> Preview Online
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

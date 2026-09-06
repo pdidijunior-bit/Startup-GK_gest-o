@@ -10,6 +10,7 @@ export const MeetingModal: React.FC = () => {
     selectedContactForMeeting,
     setSelectedContactForMeeting,
     addMeeting,
+    currentUser,
     users
   } = useApp();
 
@@ -20,7 +21,7 @@ export const MeetingModal: React.FC = () => {
   const [endTime, setEndTime] = useState('14:45');
   const [locationOrUrl, setLocationOrUrl] = useState('Google Meet - Sala GK Tech');
   const [meetLink, setMeetLink] = useState('https://meet.google.com/gk-online-meet');
-  const [participants, setParticipants] = useState<string[]>(['Sérgio GK']);
+  const [participants, setParticipants] = useState<string[]>(currentUser?.name ? [currentUser.name] : ['Equipe GK']);
   const [notes, setNotes] = useState('');
   const [reminderMinutes, setReminderMinutes] = useState(15);
   const [clientOrPartner, setClientOrPartner] = useState('');
@@ -31,9 +32,10 @@ export const MeetingModal: React.FC = () => {
       setType('reuniao_cliente');
       setClientOrPartner(selectedContactForMeeting.companyName);
       setNotes(`Reunião agendada via CRM da Startup GK para alinhamento com ${selectedContactForMeeting.contactPerson} (${selectedContactForMeeting.role}).`);
-      setParticipants(['Sérgio GK', selectedContactForMeeting.contactPerson]);
+      const myName = currentUser?.name || 'Equipe GK';
+      setParticipants([myName, selectedContactForMeeting.contactPerson]);
     }
-  }, [selectedContactForMeeting]);
+  }, [selectedContactForMeeting, currentUser]);
 
   if (!isMeetingModalOpen) return null;
 

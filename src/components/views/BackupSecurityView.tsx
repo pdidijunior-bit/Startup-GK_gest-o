@@ -48,7 +48,7 @@ export const BackupSecurityView: React.FC = () => {
       app: 'Startup GK Enterprise Management',
       version: '2.4.0',
       exportedAt: new Date().toISOString(),
-      author: currentUser?.name || 'Sérgio GK',
+      author: currentUser?.name || 'Equipe GK',
       data: {
         projects,
         tasks,

@@ -7,6 +7,7 @@ import { AuthModal } from './components/AuthModal';
 import { MeetingModal } from './components/MeetingModal';
 import { FirestoreRulesModal } from './components/modals/FirestoreRulesModal';
 
+import { LoginScreen } from './components/LoginScreen';
 import { DashboardView } from './components/views/DashboardView';
 import { ProjectsView } from './components/views/ProjectsView';
 import { TasksView } from './components/views/TasksView';
@@ -21,7 +22,12 @@ import { BackupSecurityView } from './components/views/BackupSecurityView';
 function AppContent() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [isOpenMobileSidebar, setIsOpenMobileSidebar] = useState(false);
-  const { isAuthModalOpen, isMeetingModalOpen } = useApp();
+  const { isAuthenticated, currentUser, isAuthModalOpen, isMeetingModalOpen } = useApp();
+
+  // O menu inicial do site tem que ser sempre a tela de login
+  if (!isAuthenticated || !currentUser) {
+    return <LoginScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">

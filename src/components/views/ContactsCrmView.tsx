@@ -162,7 +162,20 @@ export const ContactsCrmView: React.FC = () => {
 
           {/* Contact Cards List */}
           <div className="flex flex-col gap-2 overflow-y-auto max-h-[640px] pr-1">
-            {filteredContacts.map((contact) => {
+            {filteredContacts.length === 0 ? (
+              <div className="p-8 text-center bg-slate-950/60 rounded-xl border border-slate-800 text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+                <Users className="w-8 h-8 text-slate-700" />
+                <span className="font-semibold text-slate-300">Nenhum contato cadastrado</span>
+                <span className="text-[11px] text-slate-500">Cadastre clientes ou parceiros para o CRM da GK.</span>
+                <button
+                  onClick={() => setIsNewContactModalOpen(true)}
+                  className="mt-2 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Novo Contato
+                </button>
+              </div>
+            ) : (
+              filteredContacts.map((contact) => {
               const isSelected = selectedContact?.id === contact.id;
               const statusColor =
                 contact.status === 'Contrato Fechado'
@@ -205,7 +218,7 @@ export const ContactsCrmView: React.FC = () => {
                   </div>
                 </div>
               );
-            })}
+            }))}
           </div>
         </div>
 

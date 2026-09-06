@@ -12,8 +12,9 @@ import {
   Cloud,
   ChevronRight,
   ShieldAlert,
-  RotateCcw,
-  Database
+  ShieldCheck,
+  Database,
+  LogOut
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -48,9 +49,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     contacts,
     activeAlarms,
     setFirestoreRulesModalOpen,
-    clearCacheAndReset,
+    setIsAuthModalOpen,
     firebaseConnected,
-    firebaseProjectId
+    firebaseProjectId,
+    currentUser,
+    logout
   } = useApp();
 
   const urgentTasksCount = tasks.filter((t) => t.priority === 'urgente' && t.status !== 'done').length;
@@ -197,20 +200,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="text-[10px] text-cyan-400 font-mono">Copiar</span>
           </button>
 
-          {/* Clean Cache and Reset */}
+          {/* Segurança e Gestão de Usuários / Funcionários */}
           <button
-            onClick={() => {
-              if (window.confirm('Deseja limpar todo o cache local e restaurar a base limpa de trabalho?')) {
-                clearCacheAndReset();
-              }
-            }}
-            className="w-full flex items-center justify-between px-3 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-rose-500/40 rounded-xl text-xs text-slate-400 hover:text-rose-300 transition-colors"
+            onClick={() => setIsAuthModalOpen(true)}
+            className="w-full flex items-center justify-between px-3 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/40 rounded-xl text-xs text-slate-300 hover:text-cyan-300 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-              <span className="text-[11px]">Limpar Cache & Reset</span>
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="text-[11px] font-semibold">Segurança & Usuários</span>
             </div>
-            <span className="text-[9px] text-slate-500">Local</span>
+            <span className="text-[9px] text-cyan-400 font-mono">Gerenciar</span>
           </button>
 
           {/* App Version & Status */}
@@ -223,6 +222,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
               Firestore: {firebaseProjectId}
             </p>
           </div>
+
+          {/* Current User & Logout Action */}
+          {currentUser && (
+            <div className="flex items-center justify-between p-2 rounded-xl bg-slate-950/80 border border-slate-800">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.name}
+                  className="w-7 h-7 rounded-lg object-cover ring-1 ring-cyan-500/40 shrink-0"
+                />
+                <div className="truncate">
+                  <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+                  <p className="text-[10px] text-cyan-400 truncate">{currentUser.role}</p>
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors shrink-0"
+                title="Sair / Encerrar sessão"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </aside>
     </>

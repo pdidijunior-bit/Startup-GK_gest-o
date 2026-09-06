@@ -64,7 +64,9 @@ interface AppContextType {
   users: User[];
   login: (email: string, pass: string) => Promise<{ success: boolean; requires2fa?: boolean; error?: string }>;
   verify2FA: (code: string) => boolean;
-  registerAccount: (newUser: Partial<User>, password?: string) => Promise<{ success: boolean; error?: string }>;
+  registerAccount: (newUser: Partial<User>, password?: string, autoLogin?: boolean) => Promise<{ success: boolean; error?: string; user?: User }>;
+  switchUser: (userId: string) => void;
+  deleteUser: (userId: string) => void;
   logout: () => void;
   toggle2FA: () => void;
   isAuthModalOpen: boolean;
@@ -147,15 +149,27 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'startup_gk_database_v2';
+const STORAGE_KEY = 'startup_gk_database_v7_clean';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Load saved state from LocalStorage
   const loadSavedState = () => {
     try {
+      // Purge old mock databases and legacy cache from browser
+      ['startup_gk_database_v1', 'startup_gk_database_v2', 'startup_gk_database_v3', 'startup_gk_database_v4', 'startup_gk_database_clean_v5', 'startup_gk_database_clean_v6'].forEach((k) => {
+        try { localStorage.removeItem(k); } catch (e) {}
+      });
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Clean out any legacy mock accounts or residual test profiles
+        if (parsed.users) {
+          parsed.users = parsed.users.filter((u: any) => u.id !== 'user-sergio-gk' && !u.email?.includes('serjaopipi'));
+        }
+        if (parsed.currentUser?.id === 'user-sergio-gk' || parsed.currentUser?.email?.includes('serjaopipi')) {
+          parsed.currentUser = null;
+        }
+        return parsed;
       }
     } catch (e) {
       console.error('Error loading state from localStorage:', e);
@@ -166,8 +180,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const initialCached = loadSavedState();
 
   const [users, setUsers] = useState<User[]>(initialCached?.users || INITIAL_USERS);
-  const [currentUser, setCurrentUser] = useState<User | null>(initialCached?.currentUser || INITIAL_USERS[0]);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  // O menu inicial do site tem que ser sempre a tela de login
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [twoFactorRequired, setTwoFactorRequired] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [firestoreRulesModalOpen, setFirestoreRulesModalOpen] = useState<boolean>(false);
@@ -408,7 +423,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         eventTime: '14:30 (Em 5 minutos)',
         timeRemainingMinutes: 5,
         meetLink: 'https://meet.google.com/nexus-gk-pitch',
-        participants: ['Sérgio GK', 'Lucas Martins', 'Carlos Eduardo Mendes'],
+        participants: ['Lucas Martins', 'Carlos Eduardo Mendes'],
         active: true
       }
     ]);
@@ -486,9 +501,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return false;
   };
 
-  const registerAccount = async (newUserData: Partial<User>, password?: string) => {
-    const email = newUserData.email || 'membro@startupgk.com';
+  const registerAccount = async (newUserData: Partial<User>, password?: string, autoLogin: boolean = false) => {
+    const email = (newUserData.email || '').trim().toLowerCase();
     const pwd = password || 'StartupGK#2026';
+
+    if (!email) {
+      return { success: false, error: 'O endereço de e-mail é obrigatório para cadastrar o funcionário.' };
+    }
+
+    if (users.some((u) => u.email.toLowerCase() === email)) {
+      return { success: false, error: 'Já existe um membro cadastrado com este e-mail.' };
+    }
 
     let fbUid = `user-${Date.now()}`;
     try {
@@ -501,32 +524,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const newUser: User = {
       id: fbUid,
-      name: newUserData.name || 'Membro GK',
+      name: newUserData.name?.trim() || email.split('@')[0],
       email,
       role: newUserData.role || 'Full-Stack Developer',
       department: newUserData.department || 'Desenvolvimento Web',
       avatar: newUserData.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
       status: 'online',
-      twoFactorEnabled: true,
+      twoFactorEnabled: newUserData.twoFactorEnabled ?? false,
       securityToken: `GK-AUTH-${Math.floor(1000 + Math.random() * 9000)}`,
-      phone: newUserData.phone
+      phone: newUserData.phone || ''
     };
 
     setUsers((prev) => [...prev, newUser]);
-    setCurrentUser(newUser);
-    setIsAuthenticated(true);
-    setTwoFactorRequired(false);
-    setIsAuthModalOpen(false);
+    if (autoLogin) {
+      setCurrentUser(newUser);
+      setIsAuthenticated(true);
+      setTwoFactorRequired(false);
+    }
 
     // Sync user to Firestore
     saveUserToFirestore(newUser);
-    return { success: true };
+    return { success: true, user: newUser };
+  };
+
+  const switchUser = (userId: string) => {
+    const target = users.find((u) => u.id === userId);
+    if (target) {
+      setCurrentUser(target);
+      setIsAuthenticated(true);
+      setTwoFactorRequired(false);
+    }
+  };
+
+  const deleteUser = (userId: string) => {
+    if (currentUser?.id === userId) return;
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
   };
 
   const logout = () => {
     try {
       signOut(auth);
     } catch (e) {}
+    setCurrentUser(null);
     setIsAuthenticated(false);
     setTwoFactorRequired(false);
   };
@@ -723,7 +762,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         {
           id: `n-${Date.now()}`,
           timestamp: new Date().toLocaleString('pt-BR'),
-          author: currentUser?.name || 'Sérgio GK',
+          author: currentUser?.name || 'Membro GK',
           text: 'Contato cadastrado no sistema da Startup GK.'
         }
       ],
@@ -733,7 +772,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           type: 'note',
           timestamp: new Date().toLocaleString('pt-BR'),
           summary: 'Novo contato registrado no CRM GK',
-          author: currentUser?.name || 'Sérgio GK'
+          author: currentUser?.name || 'Membro GK'
         }
       ]
     };
@@ -790,7 +829,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ...log,
       id: `i-${Date.now()}`,
       timestamp: new Date().toLocaleString('pt-BR'),
-      author: currentUser?.name || 'Sérgio GK'
+      author: currentUser?.name || 'Equipe GK'
     };
 
     setContacts((prev) =>
@@ -826,7 +865,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
     const cleanPhone = contact.whatsapp.replace(/[^\d]/g, '');
     const defaultMsg = encodeURIComponent(
-      `Olá ${contact.contactPerson}! Aqui é ${currentUser?.name || 'Sérgio'} da Startup GK de TI. Como está o andamento do projeto?`
+      `Olá ${contact.contactPerson}! Aqui é da equipe da Startup GK. Como está o andamento do projeto?`
     );
     window.open(`https://wa.me/${cleanPhone}?text=${defaultMsg}`, '_blank');
   };
@@ -848,9 +887,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       id: `msg-${Date.now()}`,
       channelId: activeChannelId,
       senderId: currentUser?.id || 'user-1',
-      senderName: currentUser?.name || 'Sérgio GK',
+      senderName: currentUser?.name || 'Equipe GK',
       senderAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      senderRole: currentUser?.role || 'Fundador / CEO',
+      senderRole: currentUser?.role || 'Colaborador',
       content,
       timestamp: `Hoje às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
       attachment
@@ -909,7 +948,7 @@ Hash de Autenticação Digital: SHA256-GK-${doc.id.toUpperCase()}-VERIFIED
       version: '2.0',
       firebaseProject: firebaseConfig.projectId,
       exportedAt: timestamp,
-      author: currentUser?.name || 'Sérgio GK',
+      author: currentUser?.name || 'Equipe GK',
       data: {
         projects,
         tasks,
@@ -930,7 +969,7 @@ Hash de Autenticação Digital: SHA256-GK-${doc.id.toUpperCase()}-VERIFIED
       sizeKb,
       status: 'synced',
       hash: `SHA256-GK-${Math.random().toString(36).substring(2, 11).toUpperCase()}`,
-      createdByName: currentUser?.name || 'Sérgio GK'
+      createdByName: currentUser?.name || 'Equipe GK'
     };
 
     setBackups((prev) => [newBackup, ...prev]);
@@ -986,6 +1025,8 @@ Hash de Autenticação Digital: SHA256-GK-${doc.id.toUpperCase()}-VERIFIED
         login,
         verify2FA,
         registerAccount,
+        switchUser,
+        deleteUser,
         logout,
         toggle2FA,
         isAuthModalOpen,

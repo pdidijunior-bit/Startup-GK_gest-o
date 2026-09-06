@@ -38,8 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, activeTab, setA
     setIsAuthModalOpen,
     firebaseConnected,
     firebaseProjectId,
-    setFirestoreRulesModalOpen,
-    clearCacheAndReset
+    setFirestoreRulesModalOpen
   } = useApp();
 
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -57,13 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, activeTab, setA
   }, []);
 
   const handleExportPdf = () => {
-    generatePdfReport(projects, tasks, contacts, currentUser?.name || 'Sérgio GK');
-  };
-
-  const handleResetCache = () => {
-    if (window.confirm('Deseja limpar todo o cache local e recarregar os dados limpos sincronizados com o Firestore?')) {
-      clearCacheAndReset();
-    }
+    generatePdfReport(projects, tasks, contacts, currentUser?.name || 'Equipe GK');
   };
 
   return (
@@ -163,13 +156,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, activeTab, setA
           <span>Agendar Reunião</span>
         </button>
 
-        {/* Reset Cache & Clean Data Button */}
+        {/* Segurança & Gestão de Usuários/Funcionários */}
         <button
-          onClick={handleResetCache}
-          className="p-2 text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded-xl border border-slate-800 transition-colors"
-          title="Limpar Cache & Resetar Dados para Equipe Real"
+          onClick={() => setIsAuthModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-xl border border-slate-700 text-xs font-semibold transition-colors shadow-sm"
+          title="Segurança, Autenticação e Gestão de Funcionários"
         >
-          <RotateCcw className="w-4 h-4" />
+          <ShieldCheck className="w-4 h-4 text-cyan-400" />
+          <span className="hidden sm:inline">Segurança & Usuários</span>
         </button>
 
         {/* Interactive Alarm Chime Button */}

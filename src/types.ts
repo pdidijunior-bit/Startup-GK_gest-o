@@ -1,5 +1,7 @@
 export type UserRole = 'Fundador / CEO' | 'Tech Lead / Dev' | 'Full-Stack Developer' | 'UI/UX Designer' | 'Product Manager' | 'Gerente de Contas';
 
+export type Department = 'Desenvolvimento Web' | 'Design & UX' | 'Operações & Negócios' | 'Marketing Digital';
+
 export type UserStatus = 'online' | 'busy' | 'in_meeting' | 'away';
 
 export interface User {
@@ -7,7 +9,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  department: 'Desenvolvimento Web' | 'Design & UX' | 'Operações & Negócios' | 'Marketing Digital';
+  department: Department;
   avatar: string;
   status: UserStatus;
   twoFactorEnabled: boolean;

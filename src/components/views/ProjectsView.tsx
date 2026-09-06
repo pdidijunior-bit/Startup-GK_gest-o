@@ -18,7 +18,7 @@ import {
 import { Project, ProjectType, ProjectStatus } from '../../types';
 
 export const ProjectsView: React.FC = () => {
-  const { projects, addProject, updateProject } = useApp();
+  const { projects, addProject, updateProject, currentUser } = useApp();
 
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -55,7 +55,7 @@ export const ProjectsView: React.FC = () => {
       deadline,
       startDate: new Date().toISOString().slice(0, 10),
       budget: Number(budget),
-      team: ['Sérgio GK', 'Guilherme Dev'],
+      team: currentUser?.name ? [currentUser.name] : ['Equipe GK'],
       liveUrl: liveUrl || undefined,
       repositoryUrl: repositoryUrl || undefined,
       priority,
@@ -149,7 +149,22 @@ export const ProjectsView: React.FC = () => {
 
       {/* Projects Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {filteredProjects.map((proj) => {
+        {filteredProjects.length === 0 ? (
+          <div className="col-span-full p-12 text-center bg-slate-900 border border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-3">
+            <Layers className="w-12 h-12 text-slate-700 mb-1" />
+            <h3 className="text-base font-bold text-white">Nenhum projeto cadastrado</h3>
+            <p className="text-xs text-slate-400 max-w-sm">
+              Cadastre novos projetos de Web Apps, Sites Institucionais ou Páginas Publicitárias para acompanhar o cronograma e equipe.
+            </p>
+            <button
+              onClick={() => setIsNewProjectModalOpen(true)}
+              className="mt-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> Novo Projeto GK
+            </button>
+          </div>
+        ) : (
+          filteredProjects.map((proj) => {
           const typeBadge =
             proj.type === 'web_app'
               ? { label: 'Web App & SaaS', color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' }
@@ -268,7 +283,7 @@ export const ProjectsView: React.FC = () => {
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
 
       {/* Modal Criar Novo Projeto */}
