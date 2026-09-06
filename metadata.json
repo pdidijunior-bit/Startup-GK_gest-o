@@ -1,0 +1,6 @@
+{
+  "name": "Startup GK - Sistema de Gestão & Projetos",
+  "description": "Plataforma privada de gestão integrada para a Startup GK: projetos, tarefas visuais Kanban & Gantt, calendário inteligente, chat interno e Firestore real-time.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
