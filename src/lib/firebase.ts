@@ -3,6 +3,7 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInAnonymously,
   signOut,
   onAuthStateChanged,
   User as FirebaseUser,
@@ -48,6 +49,17 @@ export const firebaseConfig = {
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Attempt background session connection for Firestore rules adaptation
+try {
+  onAuthStateChanged(auth, (user) => {
+    if (!user) {
+      signInAnonymously(auth).catch(() => {
+        // Fallback silently if anonymous auth provider is not toggled in console
+      });
+    }
+  });
+} catch (e) {}
 
 // Realtime connection status flag
 let isConnectedToFirestore = false;
@@ -170,13 +182,19 @@ export function subscribeToContacts(onUpdate: (contacts: ContactPartner[]) => vo
 
 export function subscribeToMessages(onUpdate: (messages: ChatMessage[]) => void, onError?: (err: Error) => void) {
   try {
-    const q = query(collection(db, COLLECTIONS.CHAT_MESSAGES), orderBy('timestamp', 'asc'), limit(150));
+    const colRef = collection(db, COLLECTIONS.CHAT_MESSAGES);
     return onSnapshot(
-      q,
+      colRef,
       (snapshot) => {
         const list: ChatMessage[] = [];
         snapshot.forEach((docSnap) => {
           list.push({ id: docSnap.id, ...(docSnap.data() as Omit<ChatMessage, 'id'>) });
+        });
+        // Ordena com precisão cronológica por createdAt ou timestamp numérico
+        list.sort((a, b) => {
+          const timeA = a.createdAt || (a.id.startsWith('msg-') ? Number(a.id.replace('msg-', '')) : 0);
+          const timeB = b.createdAt || (b.id.startsWith('msg-') ? Number(b.id.replace('msg-', '')) : 0);
+          return timeA - timeB;
         });
         onUpdate(list);
       },
@@ -280,6 +298,15 @@ export async function syncContactToFirestore(contact: ContactPartner): Promise<v
   }
 }
 
+export async function removeContactFromFirestore(contactId: string): Promise<void> {
+  try {
+    const docRef = doc(db, COLLECTIONS.CONTACTS, contactId);
+    await deleteDoc(docRef);
+  } catch (err: any) {
+    console.warn('[Firestore] Failed to delete contact:', err.message);
+  }
+}
+
 export async function syncEventToFirestore(event: MeetingEvent): Promise<void> {
   try {
     const docRef = doc(db, COLLECTIONS.EVENTS, event.id);
@@ -289,10 +316,22 @@ export async function syncEventToFirestore(event: MeetingEvent): Promise<void> {
   }
 }
 
+export async function removeEventFromFirestore(eventId: string): Promise<void> {
+  try {
+    const docRef = doc(db, COLLECTIONS.EVENTS, eventId);
+    await deleteDoc(docRef);
+  } catch (err: any) {
+    console.warn('[Firestore] Failed to delete event:', err.message);
+  }
+}
+
 export async function syncMessageToFirestore(message: ChatMessage): Promise<void> {
   try {
     const docRef = doc(db, COLLECTIONS.CHAT_MESSAGES, message.id);
-    await setDoc(docRef, message, { merge: true });
+    await setDoc(docRef, {
+      ...message,
+      createdAt: message.createdAt || Date.now()
+    }, { merge: true });
   } catch (err: any) {
     console.warn('[Firestore] Failed to send chat message:', err.message);
   }
@@ -307,12 +346,30 @@ export async function syncLogoToFirestore(logo: BrandLogo): Promise<void> {
   }
 }
 
+export async function removeLogoFromFirestore(logoId: string): Promise<void> {
+  try {
+    const docRef = doc(db, COLLECTIONS.LOGOS, logoId);
+    await deleteDoc(docRef);
+  } catch (err: any) {
+    console.warn('[Firestore] Failed to delete logo:', err.message);
+  }
+}
+
 export async function syncDocumentToFirestore(document: DigitalDocument): Promise<void> {
   try {
     const docRef = doc(db, COLLECTIONS.DOCUMENTS, document.id);
     await setDoc(docRef, document, { merge: true });
   } catch (err: any) {
     console.warn('[Firestore] Failed to save document:', err.message);
+  }
+}
+
+export async function removeDocumentFromFirestore(docId: string): Promise<void> {
+  try {
+    const docRef = doc(db, COLLECTIONS.DOCUMENTS, docId);
+    await deleteDoc(docRef);
+  } catch (err: any) {
+    console.warn('[Firestore] Failed to delete document:', err.message);
   }
 }
 

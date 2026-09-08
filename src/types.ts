@@ -90,6 +90,9 @@ export interface MeetingEvent {
   alarmTriggered?: boolean;
   isExternalSynced?: boolean;
   meetLink?: string;
+  platform?: 'meet' | 'whatsapp' | 'other';
+  whatsappNumber?: string;
+  whatsappCallLink?: string;
 }
 
 export interface ContactNote {
@@ -139,6 +142,7 @@ export interface ChatMessage {
   senderRole: string;
   content: string;
   timestamp: string;
+  createdAt?: number;
   attachment?: {
     name: string;
     size: string;
@@ -203,6 +207,9 @@ export interface AlarmItem {
   eventTime: string;
   timeRemainingMinutes: number;
   meetLink?: string;
+  platform?: 'meet' | 'whatsapp' | 'other';
+  whatsappCallLink?: string;
+  whatsappNumber?: string;
   participants: string[];
   active: boolean;
   snoozedUntil?: number;

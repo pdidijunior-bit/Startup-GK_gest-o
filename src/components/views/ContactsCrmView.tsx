@@ -18,7 +18,8 @@ import {
   AlertCircle,
   FileText,
   X,
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 import { ContactPartner, PartnerCategory, LeadStatus } from '../../types';
 
@@ -26,6 +27,7 @@ export const ContactsCrmView: React.FC = () => {
   const {
     contacts,
     addContact,
+    deleteContact,
     addContactNote,
     callContact,
     whatsappContact,
@@ -242,11 +244,26 @@ export const ContactsCrmView: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="text-right sm:self-center">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Valor Estimado</span>
-                  <span className="text-lg font-black text-emerald-400 font-mono">
-                    R$ {selectedContact.estimatedValue.toLocaleString('pt-BR')}
-                  </span>
+                <div className="flex items-center gap-3 sm:self-center">
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Valor Estimado</span>
+                    <span className="text-lg font-black text-emerald-400 font-mono">
+                      R$ {selectedContact.estimatedValue.toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm(`Tem certeza que deseja excluir o contato ${selectedContact.companyName}?`)) {
+                        deleteContact(selectedContact.id);
+                        setSelectedContactId('');
+                      }
+                    }}
+                    className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors"
+                    title="Excluir este contato do sistema"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 

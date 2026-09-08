@@ -13,13 +13,15 @@ import {
   Sparkles,
   Users,
   Building,
-  CheckCircle2
+  CheckCircle2,
+  MessageCircle,
+  Trash2
 } from 'lucide-react';
 import { MeetingEvent } from '../../types';
 import { generateIcsCalendar, triggerFileDownload, createGoogleCalendarUrl } from '../../utils/helpers';
 
 export const CalendarView: React.FC = () => {
-  const { meetings, setIsMeetingModalOpen, activeAlarms, triggerTestAlarm } = useApp();
+  const { meetings, setIsMeetingModalOpen, activeAlarms, triggerTestAlarm, deleteMeeting } = useApp();
 
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(new Date());
@@ -275,28 +277,56 @@ export const CalendarView: React.FC = () => {
                       <span>{meet.participants.join(', ')}</span>
                     </div>
 
-                    {/* Action Links: Google Meet and Google Calendar */}
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-900">
-                      {meet.meetLink && (
+                    {/* Action Links: WhatsApp, Google Meet, Google Calendar and Delete */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-900">
+                      <div className="flex items-center gap-2">
+                        {meet.platform === 'whatsapp' || meet.whatsappCallLink ? (
+                          <a
+                            href={
+                              meet.whatsappCallLink ||
+                              (meet.whatsappNumber
+                                ? `https://wa.me/${meet.whatsappNumber.replace(/[^\d+]/g, '')}`
+                                : '#')
+                            }
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg transition-colors shadow-sm shadow-emerald-500/20"
+                            title="Abrir chamada / conversa de vídeo direta no WhatsApp"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" /> Entrar no WhatsApp
+                          </a>
+                        ) : meet.meetLink ? (
+                          <a
+                            href={meet.meetLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-lg transition-colors shadow-sm shadow-cyan-500/20"
+                          >
+                            <Video className="w-3.5 h-3.5" /> Entrar no Meet
+                          </a>
+                        ) : null}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 ml-auto">
                         <a
-                          href={meet.meetLink}
+                          href={gCalUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-lg transition-colors"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg border border-slate-700 transition-colors"
+                          title="Adicionar ao Google Calendar pessoal"
                         >
-                          <Video className="w-3.5 h-3.5" /> Entrar no Meet
+                          <ExternalLink className="w-3 h-3 text-cyan-400" /> Google Calendar
                         </a>
-                      )}
 
-                      <a
-                        href={gCalUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg border border-slate-700 transition-colors ml-auto"
-                        title="Adicionar ao Google Calendar pessoal"
-                      >
-                        <ExternalLink className="w-3 h-3 text-cyan-400" /> Google Calendar
-                      </a>
+                        <button
+                          type="button"
+                          onClick={() => deleteMeeting(meet.id)}
+                          className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                          title="Cancelar / Excluir reunião"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

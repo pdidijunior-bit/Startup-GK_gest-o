@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { X, Calendar, Clock, Video, Users, Building, Bell } from 'lucide-react';
+import { X, Calendar, Clock, Video, Users, Building, Bell, MessageCircle, Phone, ExternalLink } from 'lucide-react';
 import { EventType } from '../types';
 
 export const MeetingModal: React.FC = () => {
@@ -19,8 +19,10 @@ export const MeetingModal: React.FC = () => {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [startTime, setStartTime] = useState('14:00');
   const [endTime, setEndTime] = useState('14:45');
+  const [platform, setPlatform] = useState<'meet' | 'whatsapp'>('meet');
   const [locationOrUrl, setLocationOrUrl] = useState('Google Meet - Sala GK Tech');
   const [meetLink, setMeetLink] = useState('https://meet.google.com/gk-online-meet');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [participants, setParticipants] = useState<string[]>(currentUser?.name ? [currentUser.name] : ['Equipe GK']);
   const [notes, setNotes] = useState('');
   const [reminderMinutes, setReminderMinutes] = useState(15);
@@ -34,6 +36,11 @@ export const MeetingModal: React.FC = () => {
       setNotes(`Reunião agendada via CRM da Startup GK para alinhamento com ${selectedContactForMeeting.contactPerson} (${selectedContactForMeeting.role}).`);
       const myName = currentUser?.name || 'Equipe GK';
       setParticipants([myName, selectedContactForMeeting.contactPerson]);
+      if (selectedContactForMeeting.whatsapp) {
+        setWhatsappNumber(selectedContactForMeeting.whatsapp);
+      } else if (selectedContactForMeeting.phone) {
+        setWhatsappNumber(selectedContactForMeeting.phone);
+      }
     }
   }, [selectedContactForMeeting, currentUser]);
 
@@ -43,14 +50,21 @@ export const MeetingModal: React.FC = () => {
     e.preventDefault();
     if (!title.trim()) return;
 
+    const cleanPhone = whatsappNumber.replace(/[^\d+]/g, '');
+    const finalLocation = platform === 'whatsapp' ? `WhatsApp Vídeo (${whatsappNumber || 'Direto'})` : locationOrUrl;
+    const finalWhatsappCall = platform === 'whatsapp' && cleanPhone ? `https://wa.me/${cleanPhone.replace('+', '')}?text=${encodeURIComponent(`Olá! Confirmando nossa reunião por videoconferência/chamada da Startup GK: ${title} às ${startTime}.`)}` : undefined;
+
     addMeeting({
       title,
       type,
       date,
       startTime,
       endTime,
-      locationOrUrl,
-      meetLink,
+      platform,
+      whatsappNumber: platform === 'whatsapp' ? whatsappNumber : undefined,
+      whatsappCallLink: finalWhatsappCall,
+      locationOrUrl: finalLocation,
+      meetLink: platform === 'meet' ? meetLink : undefined,
       participants,
       notes,
       reminderMinutesBefore: reminderMinutes,
@@ -179,19 +193,95 @@ export const MeetingModal: React.FC = () => {
             </div>
           </div>
 
+          {/* Opção de Plataforma de Videoconferência / Chamada */}
+          <div className="flex flex-col gap-2 p-3 bg-slate-950/80 border border-slate-800 rounded-xl">
+            <label className="block text-xs font-bold text-slate-200">
+              Plataforma de Videoconferência / Contato
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPlatform('meet');
+                  setLocationOrUrl('Google Meet - Sala GK Tech');
+                }}
+                className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all ${
+                  platform === 'meet'
+                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 ring-1 ring-cyan-500/50'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Video className="w-4 h-4 text-cyan-400" />
+                <span>Google Meet</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPlatform('whatsapp');
+                  setLocationOrUrl('WhatsApp Vídeo / Chamada Direta');
+                }}
+                className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all ${
+                  platform === 'whatsapp'
+                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/50'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <MessageCircle className="w-4 h-4 text-emerald-400" />
+                <span>WhatsApp Vídeo / Direto</span>
+              </button>
+            </div>
+
+            {platform === 'meet' ? (
+              <div className="mt-2">
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                  Link da Sala Google Meet
+                </label>
+                <div className="relative">
+                  <Video className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+                  <input
+                    type="url"
+                    value={meetLink}
+                    onChange={(e) => setMeetLink(e.target.value)}
+                    placeholder="https://meet.google.com/..."
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 flex flex-col gap-2">
+                <div>
+                  <label className="block text-[11px] font-semibold text-emerald-400 mb-1">
+                    Número do WhatsApp para Chamada / Videoconferência
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 absolute left-3 top-3 text-emerald-400" />
+                    <input
+                      type="text"
+                      value={whatsappNumber}
+                      onChange={(e) => setWhatsappNumber(e.target.value)}
+                      placeholder="+244 923 000 000 ou número direto com DDD"
+                      className="w-full bg-slate-900 border border-emerald-500/40 rounded-xl pl-9 pr-3 py-2 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Permite abrir a chamada de vídeo ou conversa direta no WhatsApp Web ou App com 1 clique durante o alarme e no calendário.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Link da Sala Virtual</label>
-              <div className="relative">
-                <Video className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
-                <input
-                  type="url"
-                  value={meetLink}
-                  onChange={(e) => setMeetLink(e.target.value)}
-                  placeholder="https://meet.google.com/..."
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                />
-              </div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Localização ou Descrição da Sala</label>
+              <input
+                type="text"
+                value={locationOrUrl}
+                onChange={(e) => setLocationOrUrl(e.target.value)}
+                placeholder="Ex: Sala GK Tech ou WhatsApp Direto"
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              />
             </div>
 
             <div>

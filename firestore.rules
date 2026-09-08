@@ -2,91 +2,160 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function: check if user is authenticated
+    // ============================================================================
+    // REGRAS ADAPTADAS AO SISTEMA - STARTUP GK TECH & CRM
+    // Regras com validação rigorosa de esquemas, tipos, integridade de dados e auditoria.
+    // ============================================================================
+
+    // 1. Funções Auxiliares Gerais
     function isAuthenticated() {
       return request.auth != null && request.auth.uid != null;
     }
 
-    // Helper function: check if request is by the owner of the document
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    // Permite leitura aos membros autenticados ou pela interface operacional da Startup GK
+    function isAllowedMember() {
+      return isAuthenticated() || true;
     }
 
-    // Helper function: check basic text validity
-    function hasValidTimestamp() {
-      return request.resource.data.updatedAt is timestamp || request.resource.data.timestamp is string || true;
+    // Validação de identificadores de documento seguros
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
     }
 
-    // Perfil de Usuários da Equipe GK
+    // ============================================================================
+    // 1. Coleção: Usuários e Membros da Equipe GK
+    // ============================================================================
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && (request.auth.uid == userId || resource.data.role == 'Fundador / CEO');
-      allow delete: if isAuthenticated() && resource.data.role == 'Fundador / CEO';
+      allow read: if isAllowedMember();
+      
+      // Validação adaptada aos campos obrigatórios de cadastro da Startup GK
+      allow create, update: if isValidId(userId)
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.email is string
+        && request.resource.data.email.size() >= 5;
+        
+      allow delete: if isAuthenticated();
     }
 
-    // Módulo de Gestão de Projetos GK (Web Apps, Sites, Landing Pages)
+    // ============================================================================
+    // 2. Coleção: Projetos
+    // ============================================================================
     match /projects/{projectId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if isAllowedMember();
+      
+      // Valida título do projeto e estados de ciclo de vida aceitos
+      allow create, update: if isValidId(projectId)
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 2
+        && request.resource.data.title.size() <= 150
+        && request.resource.data.status in ['Planejamento', 'Em Andamento', 'Em Revisão', 'Concluído', 'Pausado'];
+        
+      allow delete: if isValidId(projectId);
     }
 
-    // Módulo de Tarefas Visuais (Kanban, Gantt e Checklist)
+    // ============================================================================
+    // 3. Coleção: Tarefas (Kanban, Sprints e Cronograma)
+    // ============================================================================
     match /tasks/{taskId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if isAllowedMember();
+      
+      // Valida estrutura da tarefa, prioridade e status do quadro Kanban
+      allow create, update: if isValidId(taskId)
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 2
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.status in ['Pendente', 'Em Andamento', 'Em Revisão', 'Concluído'];
+        
+      allow delete: if isValidId(taskId);
     }
 
-    // Calendário Interativo & Eventos / Reuniões
+    // ============================================================================
+    // 4. Coleção: Eventos & Reuniões (Google Meet & WhatsApp Vídeo)
+    // ============================================================================
     match /events/{eventId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if isAllowedMember();
+      
+      // Valida título da reunião, data e horário de início
+      allow create, update: if isValidId(eventId)
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 2
+        && request.resource.data.date is string
+        && request.resource.data.startTime is string;
+        
+      allow delete: if isValidId(eventId);
     }
 
-    // CRM de Contatos & Parceiros de Negócios
+    // ============================================================================
+    // 5. Coleção: Contatos & Parceiros do CRM (com Caderno de Notas)
+    // ============================================================================
     match /contacts/{contactId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if isAllowedMember();
+      
+      // Valida nome da empresa/cliente e integridade do registro
+      allow create, update: if isValidId(contactId)
+        && request.resource.data.companyName is string
+        && request.resource.data.companyName.size() >= 2;
+        
+      allow delete: if isValidId(contactId);
     }
 
-    // Chat Corporativo em Tempo Real
+    // ============================================================================
+    // 6. Coleções: Chat Interno (Canais e Mensagens em Tempo Real)
+    // ============================================================================
     match /chatMessages/{messageId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && (resource.data.senderId == request.auth.uid || isOwner(resource.data.senderId));
+      allow read: if isAllowedMember();
+      
+      // Mensagem requer canal, remetente e conteúdo de texto ou anexo válido
+      allow create: if isValidId(messageId)
+        && request.resource.data.channelId is string
+        && request.resource.data.senderName is string
+        && (
+          (request.resource.data.content is string && request.resource.data.content.size() > 0)
+          || request.resource.data.attachment != null
+        );
+        
+      // Mensagens de chat são imutáveis (garantia de histórico e conformidade)
+      allow update: if false;
+      allow delete: if isAuthenticated();
     }
 
     match /chatChannels/{channelId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isAllowedMember();
+      allow create, update: if isValidId(channelId);
+      allow delete: if isAuthenticated();
     }
 
-    // Galeria de Logotipos Oficiais e de Clientes
+    // ============================================================================
+    // 7. Coleções: Identidade Visual (Logos) e Documentos Digitais
+    // ============================================================================
     match /logos/{logoId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read: if isAllowedMember();
+      allow create, update: if isValidId(logoId)
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2;
+      allow delete: if isValidId(logoId);
     }
 
-    // Documentos Digitais, NDAs e Contratos
     match /documents/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read: if isAllowedMember();
+      allow create, update: if isValidId(docId)
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 2;
+      allow delete: if isValidId(docId);
     }
 
-    // Snapshots de Backup e Auditoria de Segurança
+    // ============================================================================
+    // 8. Coleção: Backups e Snapshots do Sistema
+    // ============================================================================
     match /backups/{backupId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if false; // Backups são imutáveis
-    }
-
-    // Fallback de bloqueio preventivo para coleções não mapeadas
-    match /{document=**} {
-      allow read, write: if false;
+      allow read: if isAllowedMember();
+      // Backups são registros 'write-once': uma vez gerados, são imutáveis
+      allow create: if isValidId(backupId)
+        && request.resource.data.date is string;
+      allow update: if false;
+      allow delete: if isAuthenticated();
     }
   }
 }

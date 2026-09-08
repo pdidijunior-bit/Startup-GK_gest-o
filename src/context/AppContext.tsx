@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import {
   User,
   Project,
@@ -42,10 +42,14 @@ import {
   syncProjectToFirestore,
   removeProjectFromFirestore,
   syncContactToFirestore,
+  removeContactFromFirestore,
   syncEventToFirestore,
+  removeEventFromFirestore,
   syncMessageToFirestore,
   syncLogoToFirestore,
+  removeLogoFromFirestore,
   syncDocumentToFirestore,
+  removeDocumentFromFirestore,
   saveUserToFirestore,
   firebaseConfig
 } from '../lib/firebase';
@@ -111,6 +115,7 @@ interface AppContextType {
   contacts: ContactPartner[];
   addContact: (c: Omit<ContactPartner, 'id' | 'notesBook' | 'interactionHistory'>) => void;
   updateContact: (id: string, c: Partial<ContactPartner>) => void;
+  deleteContact: (id: string) => void;
   addContactNote: (contactId: string, text: string) => void;
   logInteraction: (contactId: string, log: Omit<InteractionLog, 'id' | 'timestamp' | 'author'>) => void;
   callContact: (contact: ContactPartner) => void;
@@ -243,75 +248,101 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, []);
 
+  // IDs de itens excluídos para evitar ressuscitação ou perda de dados
+  const deletedIdsRef = useRef<Set<string>>(new Set());
+
+  // Função auxiliar de merge inteligente: preserva itens criados localmente e mescla dados remotos
+  const mergeWithLocal = useCallback(<T extends { id: string }>(currentList: T[], remoteList: T[]): T[] => {
+    const map = new Map<string, T>();
+    // 1. Mantém dados locais existentes que não foram excluídos
+    currentList.forEach((item) => {
+      if (!deletedIdsRef.current.has(item.id)) {
+        map.set(item.id, item);
+      }
+    });
+    // 2. Mescla os registros recebidos do Firestore em tempo real
+    remoteList.forEach((remoteItem) => {
+      if (!deletedIdsRef.current.has(remoteItem.id)) {
+        const local = map.get(remoteItem.id);
+        if (!local) {
+          map.set(remoteItem.id, remoteItem);
+        } else {
+          map.set(remoteItem.id, { ...local, ...remoteItem });
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, []);
+
   // Realtime Firestore Subscriptions
   useEffect(() => {
-    // 1. Tasks real-time listener
+    // 1. Tasks real-time listener com merge inteligente
     const unsubTasks = subscribeToTasks(
       (remoteTasks) => {
         if (remoteTasks && remoteTasks.length > 0) {
-          setTasks(remoteTasks);
+          setTasks((prev) => mergeWithLocal(prev, remoteTasks));
           setFirebaseConnected(true);
         }
       },
       () => setFirebaseConnected(false)
     );
 
-    // 2. Projects real-time listener
+    // 2. Projects real-time listener com merge inteligente
     const unsubProjects = subscribeToProjects(
       (remoteProjects) => {
         if (remoteProjects && remoteProjects.length > 0) {
-          setProjects(remoteProjects);
+          setProjects((prev) => mergeWithLocal(prev, remoteProjects));
           setFirebaseConnected(true);
         }
       },
       () => setFirebaseConnected(false)
     );
 
-    // 3. Events real-time listener
+    // 3. Events real-time listener com merge inteligente
     const unsubEvents = subscribeToEvents(
       (remoteEvents) => {
         if (remoteEvents && remoteEvents.length > 0) {
-          setMeetings(remoteEvents);
+          setMeetings((prev) => mergeWithLocal(prev, remoteEvents));
         }
       },
       () => {}
     );
 
-    // 4. Contacts real-time listener
+    // 4. Contacts real-time listener com merge inteligente
     const unsubContacts = subscribeToContacts(
       (remoteContacts) => {
         if (remoteContacts && remoteContacts.length > 0) {
-          setContacts(remoteContacts);
+          setContacts((prev) => mergeWithLocal(prev, remoteContacts));
         }
       },
       () => {}
     );
 
-    // 5. Messages real-time listener
+    // 5. Messages real-time listener com merge inteligente
     const unsubMessages = subscribeToMessages(
       (remoteMessages) => {
         if (remoteMessages && remoteMessages.length > 0) {
-          setMessages(remoteMessages);
+          setMessages((prev) => mergeWithLocal(prev, remoteMessages));
         }
       },
       () => {}
     );
 
-    // 6. Logos real-time listener
+    // 6. Logos real-time listener com merge inteligente
     const unsubLogos = subscribeToLogos(
       (remoteLogos) => {
         if (remoteLogos && remoteLogos.length > 0) {
-          setLogos(remoteLogos);
+          setLogos((prev) => mergeWithLocal(prev, remoteLogos));
         }
       },
       () => {}
     );
 
-    // 7. Documents real-time listener
+    // 7. Documents real-time listener com merge inteligente
     const unsubDocs = subscribeToDocuments(
       (remoteDocs) => {
         if (remoteDocs && remoteDocs.length > 0) {
-          setDocuments(remoteDocs);
+          setDocuments((prev) => mergeWithLocal(prev, remoteDocs));
         }
       },
       () => {}
@@ -384,6 +415,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     eventTime: `${meet.startTime} (${diffMinutes === 0 ? 'Começando agora!' : `em ${diffMinutes} min`})`,
                     timeRemainingMinutes: diffMinutes,
                     meetLink: meet.meetLink || meet.locationOrUrl,
+                    platform: meet.platform,
+                    whatsappCallLink: meet.whatsappCallLink,
+                    whatsappNumber: meet.whatsappNumber,
                     participants: meet.participants,
                     active: true
                   }
@@ -598,6 +632,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const deleteProject = (id: string) => {
+    deletedIdsRef.current.add(id);
     setProjects((prev) => prev.filter((item) => item.id !== id));
     removeProjectFromFirestore(id);
   };
@@ -626,6 +661,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const deleteTask = (id: string) => {
+    deletedIdsRef.current.add(id);
     setTasks((prev) => prev.filter((item) => item.id !== id));
     removeTaskFromFirestore(id);
   };
@@ -719,9 +755,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Meetings CRUD
   const addMeeting = (m: Omit<MeetingEvent, 'id'>) => {
+    let finalLocation = m.locationOrUrl;
+    let finalMeetLink = m.meetLink;
+    let finalWhatsappLink = m.whatsappCallLink;
+
+    if (m.platform === 'whatsapp') {
+      finalLocation = 'WhatsApp Vídeo / Chamada Direta';
+      const cleanPhone = (m.whatsappNumber || '').replace(/[^\d+]/g, '');
+      if (cleanPhone) {
+        finalWhatsappLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Olá! Reunião Startup GK agendada: ${m.title} às ${m.startTime}`)}`;
+      }
+    }
+
     const newM: MeetingEvent = {
       ...m,
-      id: `meet-${Date.now()}`
+      id: `meet-${Date.now()}`,
+      locationOrUrl: finalLocation,
+      meetLink: finalMeetLink,
+      whatsappCallLink: finalWhatsappLink
     };
     setMeetings((prev) => [newM, ...prev]);
     syncEventToFirestore(newM);
@@ -732,9 +783,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       );
       if (matchContact) {
         logInteraction(matchContact.id, {
-          type: 'meeting',
-          summary: `Reunião Agendada: ${m.title}`,
-          details: `Data: ${m.date} às ${m.startTime}. Link/Local: ${m.locationOrUrl}`
+          type: m.platform === 'whatsapp' ? 'whatsapp' : 'meeting',
+          summary: `Reunião Agendada (${m.platform === 'whatsapp' ? 'WhatsApp' : 'Meet'}): ${m.title}`,
+          details: `Data: ${m.date} às ${m.startTime}. Link/Local: ${finalLocation}`
         });
       }
     }
@@ -750,7 +801,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const deleteMeeting = (id: string) => {
+    deletedIdsRef.current.add(id);
     setMeetings((prev) => prev.filter((item) => item.id !== id));
+    removeEventFromFirestore(id);
   };
 
   // CRM Contacts & Notebook
@@ -778,6 +831,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setContacts((prev) => [newC, ...prev]);
     syncContactToFirestore(newC);
+  };
+
+  const deleteContact = (id: string) => {
+    deletedIdsRef.current.add(id);
+    setContacts((prev) => prev.filter((item) => item.id !== id));
+    removeContactFromFirestore(id);
   };
 
   const updateContact = (id: string, c: Partial<ContactPartner>) => {
@@ -883,8 +942,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Chat
   const sendMessage = (content: string, attachment?: ChatMessage['attachment']) => {
     if (!content.trim() && !attachment) return;
+    const now = Date.now();
     const newMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
+      id: `msg-${now}`,
       channelId: activeChannelId,
       senderId: currentUser?.id || 'user-1',
       senderName: currentUser?.name || 'Equipe GK',
@@ -892,6 +952,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       senderRole: currentUser?.role || 'Colaborador',
       content,
       timestamp: `Hoje às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
+      createdAt: now,
       attachment
     };
     setMessages((prev) => [...prev, newMsg]);
@@ -1059,6 +1120,7 @@ Hash de Autenticação Digital: SHA256-GK-${doc.id.toUpperCase()}-VERIFIED
         contacts,
         addContact,
         updateContact,
+        deleteContact,
         addContactNote,
         logInteraction,
         callContact,
